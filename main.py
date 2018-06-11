@@ -36,10 +36,10 @@ if __name__ == '__main__':
     learning_coeff = 0.01 if not args.coeff else args.coeff
     eval_coeff = 0.01 if not args.eval else args.eval
     learning_rate = 0.01 if not args.rate else args.rate
-    run_skip = 0 if not args.skip else args.skip
+    run_skip = 100 if not args.skip else args.skip
     run_limit = 1000 if not args.limit else args.limit
-    bootstrap_skip = run_skip if not args.boot_skip else args.boot_skip
-    bootstrap_limit = 10 if not args.boot_limit else args.boot_limit
+    bootstrap_skip = 0 if not args.boot_skip else args.boot_skip
+    bootstrap_limit = 100 if not args.boot_limit else args.boot_limit
     infer_steps = 100 if not args.infer else args.infer
 
     print("-----------------------")
