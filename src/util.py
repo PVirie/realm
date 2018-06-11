@@ -1,10 +1,6 @@
 import numpy as np
 
 
-def random_uniform(rows, cols):
-    return (np.random.rand(rows, cols) - 0.5) * 0.001
-
-
 def prepare_data(data, first, last_not_included):
     # data are of shape [len, ...]
     if first < 0:

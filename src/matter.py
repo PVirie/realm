@@ -1,9 +1,12 @@
 import numpy as np
-import util
 import quadprog
 import os
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
+
+
+def random_uniform(rows, cols):
+    return (np.random.rand(rows, cols) - 0.5) * 0.001
 
 
 def cross_cov(y, x):
@@ -32,16 +35,16 @@ def quadprog_solve_qp(y, W, x, b, lamb):
 
     # print(qp_G.shape, qp_a.shape, qp_C.shape, qp_b.shape)
 
-    return np.maximum(quadprog.solve_qp(qp_G, qp_a, qp_C, qp_b, meq=1)[0], 0.0)
+    return np.maximum(quadprog.solve_qp(qp_G, qp_a, qp_C, qp_b, meq=1)[0], 0.001)
 
 
 class Network:
     def __init__(self, input_shape, output_shape, learning_rate=0.01):
-        self.W = util.random_uniform(output_shape, input_shape + 1)
+        self.W = random_uniform(output_shape, input_shape + 1)
         self.yxt_ = np.zeros([output_shape, input_shape + 1])
         self.xxt_ = np.zeros([input_shape + 1, input_shape + 1])
 
-        self.A = util.random_uniform(input_shape, input_shape + 1)
+        self.A = random_uniform(input_shape, input_shape + 1)
         self.axat_ = np.zeros([input_shape, input_shape + 1])
         self.xaxat_ = np.zeros([input_shape + 1, input_shape + 1])
 
@@ -52,6 +55,7 @@ class Network:
         alpha = self.learning_rate_
         _alpha = 1 - self.learning_rate_
 
+        # x1 = np.append(x * 1.0 / x.shape[0], [1], axis=0)
         x1 = np.append(x, [1], axis=0)
         self.yxt_ = self.yxt_ * _alpha + cross_cov(y, x1) * alpha
         self.xxt_ = self.xxt_ * _alpha + cross_cov(x1, x1) * alpha
@@ -65,6 +69,11 @@ class Network:
         self.xaxat_ = self.xaxat_ * _alpha + cross_cov(xa1, xa1) * alpha
 
         self.A = np.matmul(self.axat_, np.linalg.pinv(self.xaxat_))
+
+    def project(self, x):
+        W_ = self.W[:, 0:-1]
+        x_ = np.matmul(np.transpose(W_), np.matmul(W_, x))
+        return x_
 
     def classify(self, x):
         a = quadprog_solve_qp(None, self.A[:, 0:-1], x, self.A[:, -1], 0.0)
