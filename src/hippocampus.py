@@ -52,18 +52,18 @@ class Network:
         self.learning_rate_ = learning_rate
         self.relevant_ratio_ = relevant_ratio
 
-    def learn(self, x, y):
+    def learn(self, x, y, lamb=0.1):
 
         alpha = self.learning_rate_
         _alpha = 1 - self.learning_rate_
 
-        # x1 = np.append(x * 1.0 / x.shape[0], [1], axis=0)
-        x1 = np.append(x, [1], axis=0)
+        dim = x.shape[0]
+        x1 = np.append(x * self.relevant_ratio_, [1], axis=0)
+        # x1 = np.append(x, [1], axis=0)
         self.yxt_ = self.yxt_ * _alpha + cross_cov(y, x1) * alpha
         self.xxt_ = self.xxt_ * _alpha + cross_cov(x1, x1) * alpha
         self.W = np.matmul(self.yxt_, np.transpose(np.linalg.pinv(np.transpose(self.xxt_))))
 
-        dim = x.shape[0]
         a = quadprog_solve_qp(y, self.W[:, 0:-1], x, self.W[:, -1], dim * self.relevant_ratio_, 0.0001)
         xa = x * a
 
@@ -71,7 +71,7 @@ class Network:
         self.axat_ = self.axat_ * _alpha + cross_cov(a, xa1) * alpha
         self.xaxat_ = self.xaxat_ * _alpha + cross_cov(xa1, xa1) * alpha
 
-        self.A = np.matmul(self.axat_, np.transpose(np.linalg.pinv(np.transpose(self.xaxat_))))
+        self.A = np.matmul(self.axat_, np.transpose(np.linalg.pinv(np.transpose(self.xaxat_ + lamb * np.identity(dim + 1)))))
 
     def project(self, x):
         W_ = self.W[:, 0:-1]
@@ -81,7 +81,7 @@ class Network:
     def classify(self, x):
         dim = x.shape[0]
         a = quadprog_solve_qp(None, self.A[:, 0:-1], x, self.A[:, -1], dim * self.relevant_ratio_, 0.0001)
-        return np.matmul(self.W[:, 0:-1], a * x) + self.W[:, -2:-1]
+        return np.matmul(self.W[:, 0:-1], a * x) + self.W[:, -1]
 
     def save(self, session):
         path = os.path.join(dir_path, "..", "artifacts", session)

@@ -1,10 +1,12 @@
 from tensorflow.examples.tutorials.mnist import input_data
 import argparse
 import numpy as np
-import src.matter as matter
+import src.hippocampus as memory
+import src.matter as proprocess
 import matplotlib.pyplot as plt
 import cv2
 import random
+import tensorflow as tf
 
 mnist = input_data.read_data_sets("data/", one_hot=True)
 
@@ -31,11 +33,11 @@ if __name__ == '__main__':
     data = np.concatenate([mnist.train.images, mnist.test.images, mnist.validation.images], axis=0)
     labels = np.concatenate([mnist.train.labels, mnist.test.labels, mnist.validation.labels], axis=0)
 
-    session = "run0" if not args.session else args.session
-    layer_sizes = [400, 250, 150] if not args.layers else [int(x) for x in args.layers.split(',')]
-    learning_coeff = 0.01 if not args.coeff else args.coeff
+    session_name = "run0" if not args.session else args.session
+    layer_sizes = [32] if not args.layers else [int(x) for x in args.layers.split(',')]
+    learning_coeff = 0.001 if not args.coeff else args.coeff
     eval_coeff = 0.01 if not args.eval else args.eval
-    learning_rate = 0.01 if not args.rate else args.rate
+    learning_rate = 0.001 if not args.rate else args.rate
     run_skip = 100 if not args.skip else args.skip
     run_limit = 1000 if not args.limit else args.limit
     bootstrap_skip = 0 if not args.boot_skip else args.boot_skip
@@ -43,7 +45,7 @@ if __name__ == '__main__':
     infer_steps = 100 if not args.infer else args.infer
 
     print("-----------------------")
-    print("Session:", session)
+    print("Session name:", session_name)
     print("Dataset:", data.shape)
     print("Labels:", labels.shape)
     print("layer sizes: ", layer_sizes)
@@ -57,14 +59,22 @@ if __name__ == '__main__':
     print("inference steps: ", infer_steps)
     print("-----------------------")
 
-    model = matter.Network(data.shape[1], labels.shape[1], learning_rate)
+    sess = tf.Session()
+
+    model = memory.Network(layer_sizes[0], labels.shape[1], learning_coeff)
+    layers = proprocess.Layer([data.shape[1], int(layer_sizes[0] / 2)], learning_coeff=learning_coeff)
+
+    sess.run(tf.global_variables_initializer())
 
     if args.load:
         print("loading...")
-        model.load(session)
+        model.load(session_name)
+        layers.load(sess, session_name)
     else:
         for i in range(bootstrap_skip, bootstrap_skip + bootstrap_limit):
-            model.learn(data[i, :], labels[i, :])
+            layers.learn(sess, data[i, :])
+            pre_x = layers.non_linear_feedup(sess, data[i, :])
+            model.learn(pre_x, labels[i, :])
 
     error_graph = []
     average_error = 1.0
@@ -74,8 +84,9 @@ if __name__ == '__main__':
     count = 0
     for i in indices:
 
-        label_ = model.classify(data[i, :])
-        projected_ = model.project(data[i, :])
+        pre_x = layers.non_linear_feedup(sess, data[i, :])
+        label_ = model.classify(pre_x)
+        projected_ = layers.project(sess, pre_x)
 
         gtruth = np.argmax(labels[i, :])
         predicted = np.argmax(label_)
@@ -95,15 +106,20 @@ if __name__ == '__main__':
         cv2.imshow("a", canvas)
         cv2.waitKey(1)
 
-        model.learn(data[i, :], labels[i, :])
+        layers.learn(sess, data[i, :])
+        model.learn(pre_x, labels[i, :])
         # model.debug_test()
         if i % 100 == 0:
-            model.save(session)
+            model.save(session_name)
+            layers.save(sess, session_name)
 
-    model.save(session)
+    model.save(session_name)
+    layers.save(sess, session_name)
     with open("./artifacts/" + ','.join(str(x) for x in layer_sizes) + ".txt", "w") as output:
         for v in error_graph:
             output.write("%s\n" % str(v))
+
+    sess.close()
 
     plt.plot(range(run_skip, run_skip + run_limit, 1), error_graph)
     plt.ylabel('average error')
