@@ -58,8 +58,8 @@ class Network:
         _alpha = 1 - self.learning_rate_
 
         dim = x.shape[0]
-        x1 = np.append(x * self.relevant_ratio_, [1], axis=0)
-        # x1 = np.append(x, [1], axis=0)
+        # x1 = np.append(x * self.relevant_ratio_, [1], axis=0)
+        x1 = np.append(x, [1], axis=0)
         self.yxt_ = self.yxt_ * _alpha + cross_cov(y, x1) * alpha
         self.xxt_ = self.xxt_ * _alpha + cross_cov(x1, x1) * alpha
         self.W = np.matmul(self.yxt_, np.transpose(np.linalg.pinv(np.transpose(self.xxt_))))
@@ -82,6 +82,9 @@ class Network:
         dim = x.shape[0]
         a = quadprog_solve_qp(None, self.A[:, 0:-1], x, self.A[:, -1], dim * self.relevant_ratio_, 0.0001)
         return np.matmul(self.W[:, 0:-1], a * x) + self.W[:, -1]
+
+    def classify_no_focus(self, x):
+        return np.matmul(self.W[:, 0:-1], x) + self.W[:, -1]
 
     def save(self, session):
         path = os.path.join(dir_path, "..", "artifacts", session)

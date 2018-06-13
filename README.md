@@ -7,6 +7,7 @@ REcursively Attentional Learning Machine
  * numpy
  * Cython
  * quadprog (on Windows, you will also require vc++ 14.0)
+ * cifar10_web
 
 
 
