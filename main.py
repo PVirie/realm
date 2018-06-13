@@ -20,7 +20,6 @@ parser.add_argument("--load", help="load weight", action="store_true")
 parser.add_argument("--coeff", help="update rate", type=float)
 parser.add_argument("--eval", help="evaluation coefficient", type=float)
 parser.add_argument("--rate", help="learning rate", type=float)
-parser.add_argument("--ratio", help="relevant ratio", type=float)
 parser.add_argument("--skip", help="run skip", type=int)
 parser.add_argument("--limit", help="run limit", type=int)
 parser.add_argument("--boot_skip", help="bootstrap skip", type=int)
@@ -35,7 +34,6 @@ if __name__ == '__main__':
     learning_coeff = 0.001 if not args.coeff else args.coeff
     eval_coeff = 0.01 if not args.eval else args.eval
     learning_rate = 0.001 if not args.rate else args.rate
-    relevant_ratio = 0.5 if not args.ratio else args.ratio
     run_skip = 100 if not args.skip else args.skip
     run_limit = 1000 if not args.limit else args.limit
     bootstrap_skip = 0 if not args.boot_skip else args.boot_skip
@@ -67,7 +65,6 @@ if __name__ == '__main__':
     print("learning coeff: ", learning_coeff)
     print("evaluation coeff: ", eval_coeff)
     print("learning rate: ", learning_rate)
-    print("relevant ratio: ", relevant_ratio)
     print("run skip: ", run_skip)
     print("run limit: ", run_limit)
     print("bootstrap skip: ", bootstrap_skip)
@@ -77,7 +74,7 @@ if __name__ == '__main__':
 
     sess = tf.Session()
 
-    model = memory.Network(layer_sizes[0], labels.shape[1], learning_coeff, relevant_ratio=relevant_ratio)
+    model = memory.Network(layer_sizes[0], labels.shape[1], learning_coeff)
     layers = proprocess.Layer([data.shape[1], int(layer_sizes[0] / 2)], learning_coeff=learning_coeff)
 
     sess.run(tf.global_variables_initializer())
