@@ -109,8 +109,9 @@ if __name__ == '__main__':
     for i in indices:
 
         pre_x = layers.non_linear_feedup(sess, data[i, :])
-        label_ = model.classify(pre_x)
+        label_, focus_ = model.classify(pre_x)
         projected_ = layers.project(sess, pre_x)
+        focus_ = layers.project(sess, focus_ * pre_x)
 
         label_no_focus_ = model.classify_no_focus(pre_x)
 
@@ -136,7 +137,7 @@ if __name__ == '__main__':
         no_focus_error_graph.append(average_no_focus_error)
         count = count + 1
 
-        canvas = np.concatenate((reshape_function(data[i:i + 1, :]), reshape_function(projected_)), axis=1)
+        canvas = np.concatenate((reshape_function(data[i:i + 1, :]), reshape_function(projected_), reshape_function(focus_)), axis=1)
         cv2.imshow("a", canvas)
         cv2.waitKey(1)
 

@@ -81,7 +81,7 @@ class Network:
     def classify(self, x):
         dim = x.shape[0]
         a = quadprog_solve_qp(None, self.A[:, 0:-1], x, self.A[:, -1], dim * self.relevant_ratio_, 0.0001)
-        return np.matmul(self.W[:, 0:-1], a * x) + self.W[:, -1]
+        return np.matmul(self.W[:, 0:-1], a * x) + self.W[:, -1], a
 
     def classify_no_focus(self, x):
         return np.matmul(self.W[:, 0:-1], x) + self.W[:, -1]
