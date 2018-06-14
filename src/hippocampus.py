@@ -18,7 +18,7 @@ def is_pos_def(x):
 
 
 # solve \min_a Tr[(y - (W.(x*a) + b))(y - (W.(x*a) + b))^\intercal + lamb.a.a^\intercal] s.t. \sum(a) = 1, a_i > 0 \forall i
-def quadprog_solve_qp(y, W, x, b, max_active, lamb):
+def quadprog_solve_qp(y, W, x, b, sum_active, lamb):
     dim = x.shape[0]
     Wx = np.matmul(W, np.diag(x))
 
@@ -31,7 +31,7 @@ def quadprog_solve_qp(y, W, x, b, max_active, lamb):
 
     qp_C = np.concatenate([np.ones([dim, 1]), np.identity(dim), np.identity(dim) * -1.0], axis=1)
     qp_b = np.zeros([1 + dim + dim], dtype=np.float64)
-    qp_b[0] = max_active
+    qp_b[0] = sum_active
     qp_b[(1 + dim):] = -2.0
 
     # print(qp_G.shape, qp_a.shape, qp_C.shape, qp_b.shape)
