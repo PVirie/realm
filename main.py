@@ -108,7 +108,7 @@ if __name__ == '__main__':
         pre_x = layers.non_linear_feedup(sess, data[i, :])
         label_, focus_ = model.classify(pre_x)
         projected_ = layers.project(sess, pre_x)
-        focus_ = layers.project(sess, focus_ * pre_x)
+        focus_ = (layers.project(sess, focus_) - projected_ + 1.0) / 2.0
 
         label_no_focus_ = model.classify_no_focus(pre_x)
 
@@ -156,4 +156,5 @@ if __name__ == '__main__':
     plt.plot(range(run_skip, run_skip + run_limit, 1), error_graph, 'b', label='focus')
     plt.plot(range(run_skip, run_skip + run_limit, 1), no_focus_error_graph, 'r', label='no focus')
     plt.ylabel('average error')
+    plt.savefig("./results/" + ','.join(str(x) for x in layer_sizes) + ".png")
     plt.show()
