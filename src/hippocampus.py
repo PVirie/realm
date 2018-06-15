@@ -24,10 +24,10 @@ def quadprog_solve_qp(y, W, x, b, max_active, lamb):
 
     if y is None:
         qp_G = (np.matmul(np.transpose(Wx), Wx) + np.identity(dim) - Wx - np.transpose(Wx)) * 2 + np.identity(dim) * lamb
-        qp_a = np.zeros([dim])
+        qp_a = np.matmul(np.transpose(Wx - np.identity(dim)), - b) * 2
     else:
         qp_G = (np.matmul(np.transpose(Wx), Wx)) * 2 + np.identity(dim) * lamb
-        qp_a = np.matmul(np.transpose(Wx), y - b)
+        qp_a = np.matmul(np.transpose(Wx), y - b) * 2
 
     qp_C = np.concatenate([np.ones([dim, 1]), np.identity(dim), np.identity(dim) * -1.0], axis=1)
     qp_b = np.zeros([1 + dim + dim], dtype=np.float64)
