@@ -113,8 +113,13 @@ if __name__ == '__main__':
         label_no_focus_ = model.classify_no_focus(pre_x)
 
         gtruth = np.argmax(labels[i, :])
-        predicted = np.argmax(label_)
-        predicted_no_focus_ = np.argmax(label_no_focus_)
+
+        def get_best_index(label):
+            diff = np.identity(label.shape[0]) - label
+            return np.argmin(np.sum(diff * diff, axis=1))
+
+        predicted = get_best_index(label_)
+        predicted_no_focus_ = get_best_index(label_no_focus_)
         print(gtruth, predicted, predicted_no_focus_)
 
         if predicted == gtruth:
