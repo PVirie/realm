@@ -4,20 +4,26 @@ import tensorflow as tf
 import quadprog
 
 
-def quadprog_solve_qp(Wx, b, sum_active, lamb):
-    dim = b.shape[0]
+# solve \min_a Tr[(y - (W.(x*a) + b))(y - (W.(x*a) + b))^\intercal + lamb.a.a^\intercal] s.t. \sum(a) = 1, a_i > 0 \forall i
+def quadprog_solve_qp(y, W, x, b, sum_active, lamb):
+    dim = x.shape[0]
+    Wx = np.matmul(W, np.diag(x))
 
-    qp_G = (np.matmul(np.transpose(Wx), Wx) + np.identity(dim) - Wx - np.transpose(Wx)) + np.identity(dim) * lamb
-    qp_a = (b - np.matmul(np.transpose(Wx), b))
+    if y is None:
+        qp_G = (np.matmul(np.transpose(Wx), Wx) + np.identity(dim) - Wx - np.transpose(Wx)) + np.identity(dim) * lamb
+        qp_a = (b - np.matmul(np.transpose(Wx), b))
+    else:
+        qp_G = (np.matmul(np.transpose(Wx), Wx)) + np.identity(dim) * lamb
+        qp_a = np.matmul(np.transpose(Wx), y - b)
 
-    qp_C = np.identity(dim)
-    qp_b = np.zeros([dim], dtype=np.float64)
-    # qp_b[0] = sum_active
-    # qp_b[(1 + dim):] = -2.0
+    qp_C = np.concatenate([np.ones([dim, 1]), np.identity(dim), np.identity(dim) * -1.0], axis=1)
+    qp_b = np.zeros([1 + dim + dim], dtype=np.float64)
+    qp_b[0] = sum_active
+    qp_b[(1 + dim):] = -2.0
 
     # print(qp_G.shape, qp_a.shape, qp_C.shape, qp_b.shape)
 
-    return np.maximum(quadprog.solve_qp(qp_G, qp_a, qp_C, qp_b, meq=0)[0], 0)
+    return np.maximum(quadprog.solve_qp(qp_G, qp_a, qp_C, qp_b, meq=1)[0], 0)
 
 
 def apply_gradients(gradients, delta, rate=0.001, name="adam"):
@@ -54,8 +60,8 @@ class AUC:
         return __
 
     def create_forward_graph(self, x):
-        y = tf.nn.sigmoid(tf.matmul(self.w, x))
-        x_ = tf.nn.sigmoid(tf.matmul(tf.transpose(self.w), y))
+        y = tf.nn.elu(tf.matmul(self.w, x))
+        x_ = tf.nn.elu(tf.matmul(tf.transpose(self.w), y))
 
         self.objective = tf.trace(tf.matmul(x - x_, tf.transpose(x - x_))) / tf.cast(tf.reduce_prod(tf.shape(x)), tf.float32)
         grad = tf.gradients(self.objective, [self.w])
@@ -70,48 +76,77 @@ if __name__ == '__main__':
     # data = np.concatenate([mnist.train.images, mnist.test.images, mnist.validation.images], axis=0)
     # labels = np.concatenate([mnist.train.labels, mnist.test.labels, mnist.validation.labels], axis=0)
 
-    y = np.transpose(1 - mnist.test.labels)
-    xt = mnist.test.images
+    y = np.transpose(1 - mnist.train.labels)
+    xt = mnist.train.images
     x = np.transpose(xt)
 
     sess = tf.Session()
-    auc = AUC([28 * 28, 10])
-    sess.run(tf.global_variables_initializer())
 
-    error = auc.learn(sess, x, 0.1, 100)
-    h = auc.feedup(sess, x)
-    h_ = auc.feedup(sess, np.transpose(mnist.test.images))
+    # auc = AUC([28 * 28, 16])
+    # sess.run(tf.global_variables_initializer())
 
-    ht = np.transpose(h)
+    # error = auc.learn(sess, x, 0.1, 100)
+    # h = auc.feedup(sess, x)
+    # h_ = auc.feedup(sess, np.transpose(mnist.test.images))
+
+    h = x
+    h_ = np.transpose(mnist.test.images)
 
     # ----------------------- test
 
-    yht = np.matmul(y, ht)
-    hht = np.matmul(h, ht)
+    h1 = np.concatenate([h, np.ones([1, h.shape[1]])], axis=0)
+    h1t = np.transpose(h1)
+
+    yht = np.matmul(y, h1t)
+    hht = np.matmul(h1, h1t)
 
     W = np.matmul(yht, np.transpose(np.linalg.pinv(np.transpose(hht))))
 
-    r = np.matmul(W, h_)
+    h1_ = np.concatenate([h_, np.ones([1, h_.shape[1]])], axis=0)
+
+    r = np.matmul(W, h1_)
     r = np.argmin(r, axis=0)
     g = np.argmax(mnist.test.labels, axis=1)
-    print(np.sum(r == g) * 100 / h_.shape[1])
+    print(np.sum(r == g) * 100 / h1_.shape[1])
 
-    # ----------------------- fixed point
+    # ----------------------- with attention
 
-    xa1 = np.concatenate([y * h, np.ones([1, y.shape[1]])], axis=0)
-    axat = np.matmul(y, np.transpose(xa1))
-    xaxat = np.matmul(xa1, np.transpose(xa1))
-    A = np.matmul(axat, np.transpose(np.linalg.pinv(np.transpose(xaxat + 0.0001 * np.identity(xa1.shape[0])))))
+    a = np.zeros(h.shape)
+    for i in range(h.shape[1]):
+        a[:, i] = quadprog_solve_qp(y[:, i], W[:, 0:-1], h[:, i], W[:, -1], float(h.shape[0]), 0.00001)
 
-    count_correct = 0
-    for i in range(h_.shape[1]):
-        Ax = np.matmul(A[:, 0:-1], np.diag(h_[:, i]))
-        b = A[:, -1]
-        r2 = quadprog_solve_qp(Ax, b, 9.0, 0.00001)
+    aht = np.matmul(a, h1t)
+    A = np.matmul(aht, np.transpose(np.linalg.pinv(np.transpose(hht))))
 
-        if np.argmin(r2) == np.argmax(mnist.test.labels[i, :]):
-            count_correct = count_correct + 1
+    ra = np.matmul(A, h1_)
 
-    print(count_correct * 100 / h_.shape[1])
+    ha1_ = np.concatenate([h_ * ra, np.ones([1, h_.shape[1]])], axis=0)
+
+    r2 = np.matmul(W, ha1_)
+    r2 = np.argmin(r2, axis=0)
+    g = np.argmax(mnist.test.labels, axis=1)
+    print(np.sum(r2 == g) * 100 / h_.shape[1])
+
+    # ---------------------- with second attention
+
+    a2 = np.zeros(h.shape)
+    for i in range(h.shape[1]):
+        a2[:, i] = quadprog_solve_qp(a[:, i], A[:, 0:-1], h[:, i], A[:, -1], float(h.shape[0]), 0.00001)
+
+    aht2 = np.matmul(a2, h1t)
+    A2 = np.matmul(aht2, np.transpose(np.linalg.pinv(np.transpose(hht))))
+
+    ra2 = np.matmul(A2, h1_)
+
+    ha1_ = np.concatenate([h_ * ra2, np.ones([1, h_.shape[1]])], axis=0)
+
+    ra3 = np.matmul(A, ha1_)
+
+    ha2_ = np.concatenate([h_ * ra3, np.ones([1, h_.shape[1]])], axis=0)
+
+    r3 = np.matmul(W, ha2_)
+    r3 = np.argmin(r3, axis=0)
+    g = np.argmax(mnist.test.labels, axis=1)
+    print(np.sum(r3 == g) * 100 / h_.shape[1])
 
     sess.close()
