@@ -54,7 +54,10 @@ class AUC:
         return __
 
     def create_forward_graph(self, x):
-        y = tf.nn.sigmoid(tf.matmul(self.w, x))
+        h = tf.matmul(self.w, x)
+        hs = tf.shape(h)
+        y = tf.where(tf.random_uniform(hs) - h < 0, tf.ones(hs), tf.zeros(hs))
+        # y = tf.nn.sigmoid(h)
         x_ = tf.nn.sigmoid(tf.matmul(tf.transpose(self.w), y))
 
         self.objective = tf.trace(tf.matmul(x - x_, tf.transpose(x - x_))) / tf.cast(tf.reduce_prod(tf.shape(x)), tf.float32)
@@ -75,10 +78,10 @@ if __name__ == '__main__':
     x = np.transpose(xt)
 
     sess = tf.Session()
-    auc = AUC([28 * 28, 10])
+    auc = AUC([28 * 28, 256])
     sess.run(tf.global_variables_initializer())
 
-    error = auc.learn(sess, x, 0.1, 100)
+    error = auc.learn(sess, x, 0.01, 400)
     h = auc.feedup(sess, x)
     h_ = auc.feedup(sess, np.transpose(mnist.test.images))
 
@@ -98,20 +101,20 @@ if __name__ == '__main__':
 
     # ----------------------- fixed point
 
-    xa1 = np.concatenate([y * h, np.ones([1, y.shape[1]])], axis=0)
-    axat = np.matmul(y, np.transpose(xa1))
-    xaxat = np.matmul(xa1, np.transpose(xa1))
-    A = np.matmul(axat, np.transpose(np.linalg.pinv(np.transpose(xaxat + 0.0001 * np.identity(xa1.shape[0])))))
+    # xa1 = np.concatenate([y * h, np.ones([1, y.shape[1]])], axis=0)
+    # axat = np.matmul(y, np.transpose(xa1))
+    # xaxat = np.matmul(xa1, np.transpose(xa1))
+    # A = np.matmul(axat, np.transpose(np.linalg.pinv(np.transpose(xaxat + 0.0001 * np.identity(xa1.shape[0])))))
 
-    count_correct = 0
-    for i in range(h_.shape[1]):
-        Ax = np.matmul(A[:, 0:-1], np.diag(h_[:, i]))
-        b = A[:, -1]
-        r2 = quadprog_solve_qp(Ax, b, 9.0, 0.00001)
+    # count_correct = 0
+    # for i in range(h_.shape[1]):
+    #     Ax = np.matmul(A[:, 0:-1], np.diag(h_[:, i]))
+    #     b = A[:, -1]
+    #     r2 = quadprog_solve_qp(Ax, b, 9.0, 0.00001)
 
-        if np.argmin(r2) == np.argmax(mnist.test.labels[i, :]):
-            count_correct = count_correct + 1
+    #     if np.argmin(r2) == np.argmax(mnist.test.labels[i, :]):
+    #         count_correct = count_correct + 1
 
-    print(count_correct * 100 / h_.shape[1])
+    # print(count_correct * 100 / h_.shape[1])
 
     sess.close()
